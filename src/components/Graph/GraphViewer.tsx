@@ -12,6 +12,7 @@ const GraphViewer: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGraph, setShowGraph] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
 
   // Connection form state
   const [connectionForm, setConnectionForm] = useState({
@@ -98,6 +99,53 @@ const GraphViewer: React.FC = () => {
     setShowGraph(true);
   };
 
+  const handleAddFile = () => {
+    if (
+      newFileName.trim() &&
+      !connectionForm.documentNames.includes(newFileName.trim())
+    ) {
+      setConnectionForm((prev) => ({
+        ...prev,
+        documentNames: [...prev.documentNames, newFileName.trim()],
+      }));
+      setNewFileName("");
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setConnectionForm((prev) => ({
+      ...prev,
+      documentNames: prev.documentNames.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddFile();
+    }
+  };
+
+  const handleClearAllFiles = () => {
+    setConnectionForm((prev) => ({
+      ...prev,
+      documentNames: [],
+    }));
+  };
+
+  const handleAddSampleFiles = () => {
+    const sampleFiles = [
+      "Apple stock during pandemic.pdf",
+      "Market analysis report.pdf",
+      "Financial statements Q4.pdf",
+      "Investment portfolio.pdf",
+    ];
+    setConnectionForm((prev) => ({
+      ...prev,
+      documentNames: [...new Set([...prev.documentNames, ...sampleFiles])],
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
@@ -175,23 +223,125 @@ const GraphViewer: React.FC = () => {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Document Names (JSON array)
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Document Files
             </label>
-            <textarea
-              value={JSON.stringify(connectionForm.documentNames, null, 2)}
-              onChange={(e) => {
-                try {
-                  const parsed = JSON.parse(e.target.value);
-                  handleConnectionChange("documentNames", parsed);
-                } catch (err) {
-                  // Keep the old value if JSON is invalid
+
+            {/* File List */}
+            <div className="mb-3">
+              {connectionForm.documentNames.length > 0 ? (
+                <div className="space-y-2">
+                  {connectionForm.documentNames.map((fileName, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center">
+                        <svg
+                          className="w-5 h-5 text-gray-400 mr-2"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-900">
+                          {fileName}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveFile(index)}
+                        className="text-red-500 hover:text-red-700 transition-colors"
+                        title="Remove file"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                  <svg
+                    className="w-12 h-12 mx-auto mb-3 text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  <p>No files added yet</p>
+                  <p className="text-sm">
+                    Add files below to include them in the graph
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Add File Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newFileName}
+                onChange={(e) => setNewFileName(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Enter file name (e.g., document1.pdf)"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleAddFile}
+                disabled={
+                  !newFileName.trim() ||
+                  connectionForm.documentNames.includes(newFileName.trim())
                 }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-              placeholder='["document1.pdf", "document2.pdf"]'
-            />
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-md transition-colors"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* File Count */}
+            <div className="mt-2 text-sm text-gray-600">
+              {connectionForm.documentNames.length} file
+              {connectionForm.documentNames.length !== 1 ? "s" : ""} selected
+            </div>
+
+            {/* Bulk Operations */}
+            {connectionForm.documentNames.length > 0 && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={handleClearAllFiles}
+                  className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded border border-red-200 transition-colors"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={handleAddSampleFiles}
+                  className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
+                >
+                  Add Sample Files
+                </button>
+              </div>
+            )}
           </div>
 
           <button
