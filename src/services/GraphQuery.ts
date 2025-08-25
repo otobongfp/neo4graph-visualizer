@@ -182,3 +182,189 @@ export const graphQueryAPIWithTransform = async (
     throw error;
   }
 };
+
+export const searchNodesAPI = async (
+  search_term: string,
+  node_type: string = "Person",
+  max_results: number = 50,
+  signal: AbortSignal,
+  connectionParams?: ConnectionParams
+) => {
+  try {
+    console.log("Making search API call with params:", {
+      search_term,
+      node_type,
+      max_results,
+      connectionParams: connectionParams
+        ? {
+            uri: connectionParams.uri,
+            userName: connectionParams.userName,
+            database: connectionParams.database,
+            password: "***", //hide pass
+          }
+        : "none",
+    });
+
+    const formData = new FormData();
+    formData.append("search_term", search_term);
+    formData.append("node_type", node_type);
+    formData.append("max_results", max_results.toString());
+
+    if (connectionParams) {
+      formData.append("uri", connectionParams.uri);
+      formData.append("userName", connectionParams.userName);
+      formData.append("password", connectionParams.password);
+      formData.append("database", connectionParams.database);
+    }
+
+    const response = await api.post(`/search_nodes`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      signal,
+    });
+    return response;
+  } catch (error: any) {
+    console.error("Error searching nodes:", error);
+    if (error.code === "ECONNABORTED") {
+      throw new Error(
+        "Request timed out. The backend is taking too long to respond. Please check if your backend is running and try again."
+      );
+    } else if (error.response) {
+      throw new Error(
+        `Backend error: ${error.response.status} - ${error.response.data?.detail || error.response.statusText}`
+      );
+    } else if (error.request) {
+      throw new Error(
+        "No response from backend. Please check if your backend is running"
+      );
+    } else {
+      throw new Error(`Request failed: ${error.message}`);
+    }
+  }
+};
+
+export const getSubgraphAPI = async (
+  node_id: string,
+  depth: number = 4,
+  max_nodes: number = 1000,
+  signal: AbortSignal,
+  connectionParams?: ConnectionParams
+) => {
+  try {
+    console.log("Making subgraph API call with params:", {
+      node_id,
+      depth,
+      max_nodes,
+      connectionParams: connectionParams
+        ? {
+            uri: connectionParams.uri,
+            userName: connectionParams.userName,
+            database: connectionParams.database,
+            password: "***", //hide pass
+          }
+        : "none",
+    });
+
+    const formData = new FormData();
+    formData.append("node_id", node_id);
+    formData.append("depth", depth.toString());
+    formData.append("max_nodes", max_nodes.toString());
+
+    if (connectionParams) {
+      formData.append("uri", connectionParams.uri);
+      formData.append("userName", connectionParams.userName);
+      formData.append("password", connectionParams.password);
+      formData.append("database", connectionParams.database);
+    }
+
+    const response = await api.post(`/get_subgraph`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      signal,
+    });
+    return response;
+  } catch (error: any) {
+    console.error("Error getting subgraph:", error);
+    if (error.code === "ECONNABORTED") {
+      throw new Error(
+        "Request timed out. The backend is taking too long to respond. Please check if your backend is running and try again."
+      );
+    } else if (error.response) {
+      throw new Error(
+        `Backend error: ${error.response.status} - ${error.response.data?.detail || error.response.statusText}`
+      );
+    } else if (error.request) {
+      throw new Error(
+        "No response from backend. Please check if your backend is running"
+      );
+    } else {
+      throw new Error(`Request failed: ${error.message}`);
+    }
+  }
+};
+
+export const searchAndGetSubgraphAPI = async (
+  search_term: string,
+  node_type: string = "Person",
+  depth: number = 4,
+  max_results: number = 10,
+  signal: AbortSignal,
+  connectionParams?: ConnectionParams
+) => {
+  try {
+    console.log("Making search and subgraph API call with params:", {
+      search_term,
+      node_type,
+      depth,
+      max_results,
+      connectionParams: connectionParams
+        ? {
+            uri: connectionParams.uri,
+            userName: connectionParams.userName,
+            database: connectionParams.database,
+            password: "***", //hide pass
+          }
+        : "none",
+    });
+
+    const formData = new FormData();
+    formData.append("search_term", search_term);
+    formData.append("node_type", node_type);
+    formData.append("depth", depth.toString());
+    formData.append("max_results", max_results.toString());
+
+    if (connectionParams) {
+      formData.append("uri", connectionParams.uri);
+      formData.append("userName", connectionParams.userName);
+      formData.append("password", connectionParams.password);
+      formData.append("database", connectionParams.database);
+    }
+
+    const response = await api.post(`/search_and_get_subgraph`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      signal,
+    });
+    return response;
+  } catch (error: any) {
+    console.error("Error searching and getting subgraph:", error);
+    if (error.code === "ECONNABORTED") {
+      throw new Error(
+        "Request timed out. The backend is taking too long to respond. Please check if your backend is running and try again."
+      );
+    } else if (error.response) {
+      throw new Error(
+        `Backend error: ${error.response.status} - ${error.response.data?.detail || error.response.statusText}`
+      );
+    } else if (error.request) {
+      throw new Error(
+        "No response from backend. Please check if your backend is running"
+      );
+    } else {
+      throw new Error(`Request failed: ${error.message}`);
+    }
+  }
+};

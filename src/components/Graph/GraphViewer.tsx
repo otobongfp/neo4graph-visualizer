@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import EmbeddedGraphView from "./EmbeddedGraphView";
 import SampleData from "./SampleData";
+import SearchPanel, { SearchParams } from "./SearchPanel";
+import SearchResults from "./SearchResults";
 import { ExtendedNode, ExtendedRelationship } from "../../types";
-import { graphQueryAPIWithTransform } from "../../services/GraphQuery";
+import { graphQueryAPIWithTransform, searchAndGetSubgraphAPI } from "../../services/GraphQuery";
 
 const GraphViewer: React.FC = () => {
   const [nodes, setNodes] = useState<ExtendedNode[]>([]);
@@ -13,6 +15,7 @@ const GraphViewer: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showGraph, setShowGraph] = useState(false);
   const [newFileName, setNewFileName] = useState("");
+  const [searchResult, setSearchResult] = useState<any>(null);
 
   // Connection form state
   const [connectionForm, setConnectionForm] = useState({
@@ -31,6 +34,7 @@ const GraphViewer: React.FC = () => {
     setRelationships(sampleRelationships);
     setError(null);
     setShowGraph(false); // Reset graph view when new data is loaded
+    setSearchResult(null); // Clear search results
   };
 
   const handleLoadBackendData = async () => {
@@ -67,6 +71,7 @@ const GraphViewer: React.FC = () => {
       setNodes(backendNodes);
       setRelationships(backendRelationships);
       setShowGraph(false); // Reset graph view when new data is loaded
+      setSearchResult(null); // Clear search results
 
       console.log(
         `Loaded ${backendNodes.length} nodes and ${backendRelationships.length} relationships from backend`
@@ -86,6 +91,96 @@ const GraphViewer: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async (searchParams: SearchParams) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log("Starting search...", searchParams);
+
+      // Create an AbortController for the API call
+      const abortController = new AbortController();
+
+      // Set a timeout to abort the request if it takes too long
+      const timeoutId = setTimeout(() => {
+        console.log("Search request timeout - aborting");
+        abortController.abort();
+      }, 120000); // 2 minute timeout for search operations
+
+      // Perform search and subgraph extraction
+      const response = await searchAndGetSubgraphAPI(
+        searchParams.search_term,
+        searchParams.node_type,
+        searchParams.depth,
+        searchParams.max_results,
+        abortController.signal,
+        connectionForm
+      );
+
+      // Clear the timeout since we got a response
+      clearTimeout(timeoutId);
+
+      // Extract the search results
+      const searchData = response.data.data;
+      setSearchResult(searchData);
+
+      console.log(
+        `Search completed: ${searchData.total_results} total results, ${searchData.subgraphs.length} subgraphs`
+      );
+    } catch (err: any) {
+      console.error("Error during search:", err);
+      if (err.name === "AbortError") {
+        setError(
+          "Search was cancelled due to timeout. The backend is taking too long to respond."
+        );
+      } else {
+        setError(
+          err.message ||
+            "Failed to perform search. Check your connection details and search parameters."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewSubgraph = (subgraph: any) => {
+    // Transform the subgraph data to match the expected format
+    const transformedNodes: ExtendedNode[] = subgraph.nodes.map((node: any) => ({
+      id: node.element_id,
+      labels: node.labels,
+      properties: node.properties,
+      caption: node.properties?.name || node.properties?.title || node.properties?.id || "Unnamed Node",
+      size: 20,
+      color: "#4CAF50",
+    }));
+
+    const transformedRelationships: ExtendedRelationship[] = subgraph.relationships.map((rel: any) => ({
+      id: rel.element_id,
+      type: rel.type,
+      from: rel.start_node_id,
+      to: rel.end_node_id,
+      properties: rel.properties,
+      caption: rel.type,
+      color: "#2196F3",
+      width: 2,
+    }));
+
+    setNodes(transformedNodes);
+    setRelationships(transformedRelationships);
+    setShowGraph(true);
+    setError(null);
+
+    console.log(
+      `Loaded subgraph with ${transformedNodes.length} nodes and ${transformedRelationships.length} relationships`
+    );
+  };
+
+  const handleClearSearch = () => {
+    setSearchResult(null);
+    setError(null);
   };
 
   const handleConnectionChange = (field: string, value: string | string[]) => {
@@ -154,6 +249,21 @@ const GraphViewer: React.FC = () => {
         </h1>
 
         <SampleData onLoadSampleData={handleLoadSampleData} />
+
+        {/* Search Panel */}
+        <SearchPanel
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+          loading={loading}
+          connectionForm={connectionForm}
+        />
+
+        {/* Search Results */}
+        <SearchResults
+          searchResult={searchResult}
+          onViewSubgraph={handleViewSubgraph}
+          onClear={handleClearSearch}
+        />
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h3 className="text-lg font-medium mb-4">Backend Connection</h3>
@@ -344,62 +454,42 @@ const GraphViewer: React.FC = () => {
             )}
           </div>
 
-          <button
-            onClick={handleLoadBackendData}
-            disabled={loading || !connectionForm.password}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            {loading ? "Connecting to Neo4j..." : "Load Backend Data"}
-          </button>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
+          <div className="flex space-x-4">
+            <button
+              onClick={handleLoadBackendData}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Loading..." : "Load Backend Data"}
+            </button>
+            <button
+              onClick={handleShowGraph}
+              disabled={nodes.length === 0}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Show Graph
+            </button>
+          </div>
         </div>
 
-        {/* Graph Controls */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Graph Controls</h2>
-
-          <button
-            onClick={handleShowGraph}
-            disabled={nodes.length === 0}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            {showGraph
-              ? "Hide Graph View"
-              : `Open Graph View (${nodes.length} nodes, ${relationships.length} relationships)`}
-          </button>
-
-          {nodes.length > 0 && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-700 text-sm">
-                Data loaded successfully! Click the button above to view the
-                graph.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Embedded Graph View - Only show when showGraph is true */}
-        {showGraph && (
-          <EmbeddedGraphView
-            nodeValues={nodes}
-            relationshipValues={relationships}
-            viewPoint="chatInfoView"
-          />
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <h3 className="text-sm font-medium text-red-800">Error</h3>
+            <p className="text-sm text-red-700 mt-1">{error}</p>
+          </div>
         )}
 
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-medium mb-2">Instructions</h3>
-          <p className="text-gray-600">
-            This is a standalone graph visualization component. First load
-            sample data or configure your backend connection and load real data,
-            then click "Open Graph View" to see the visualization.
-          </p>
-        </div>
+        {/* Graph Visualization */}
+        {showGraph && nodes.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-medium mb-4">Graph Visualization</h3>
+            <EmbeddedGraphView
+              nodeValues={nodes}
+              relationshipValues={relationships}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
