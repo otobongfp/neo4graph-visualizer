@@ -27,6 +27,9 @@ const GraphViewer: React.FC = () => {
   const [riskAssessment, setRiskAssessment] = useState<any>(null);
   const [riskLoading, setRiskLoading] = useState(false);
 
+  // Search loading state
+  const [searchLoading, setSearchLoading] = useState(false);
+
   // Tab management state
   const [activeTab, setActiveTab] = useState<TabType>("graph");
 
@@ -113,7 +116,7 @@ const GraphViewer: React.FC = () => {
   };
 
   const handleSearch = async (searchParams: SearchParams) => {
-    setLoading(true);
+    setSearchLoading(true);
     setError(null);
 
     try {
@@ -161,7 +164,7 @@ const GraphViewer: React.FC = () => {
         );
       }
     } finally {
-      setLoading(false);
+      setSearchLoading(false);
     }
   };
 
@@ -291,6 +294,23 @@ const GraphViewer: React.FC = () => {
 
     // Show success feedback
     alert("Credentials saved to session storage successfully!");
+  };
+
+  // Helper function to render clickable links
+  const renderClickableSource = (source: string) => {
+    if (source.startsWith("http://") || source.startsWith("https://")) {
+      return (
+        <a
+          href={source}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 underline break-all"
+        >
+          {source}
+        </a>
+      );
+    }
+    return <span className="text-gray-600 break-all">{source}</span>;
   };
 
   // Load credentials from session storage on component mount
@@ -458,7 +478,7 @@ const GraphViewer: React.FC = () => {
           onSearch={handleSearch}
           onClear={handleClearSearch}
           onAnalyzeRisk={handleAnalyzeRisk}
-          loading={loading}
+          loading={searchLoading}
           connectionForm={connectionForm}
         />
 
@@ -557,7 +577,33 @@ const GraphViewer: React.FC = () => {
             {/* Search Results Tab */}
             {activeTab === "search" && (
               <div>
-                {searchResult ? (
+                {searchLoading ? (
+                  <div className="text-center py-12">
+                    <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-white bg-blue-500 hover:bg-blue-400 transition ease-in-out duration-150 cursor-not-allowed">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Extracting Subgraph...
+                    </div>
+                  </div>
+                ) : searchResult ? (
                   <div>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-lg font-medium">Search Results</h3>
@@ -772,9 +818,9 @@ const GraphViewer: React.FC = () => {
                                       (source: string, sourceIndex: number) => (
                                         <div
                                           key={sourceIndex}
-                                          className="text-xs text-blue-600 break-all"
+                                          className="text-xs"
                                         >
-                                          {source}
+                                          {renderClickableSource(source)}
                                         </div>
                                       )
                                     )}
